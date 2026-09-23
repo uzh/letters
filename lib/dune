@@ -14,14 +14,9 @@
   lwt.unix
   mrmime
   ptime.clock.os
-  rresult
   sendmail
   sendmail.starttls
   tls
   tls-lwt
+  unix
   x509))
-
-(env
- (dev
-  (flags
-   (:standard -w -16))))

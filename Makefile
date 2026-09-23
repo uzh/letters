@@ -1,6 +1,6 @@
 .PHONY: deps
 deps: ## Install development dependencies
-	opam install --deps-only --with-test --with-doc -y .
+	opam install --working-dir --with-dev-setup --with-test --with-doc --update-invariant -y .
 	eval $(opam env)
 
 .PHONY: create_switch
@@ -19,6 +19,10 @@ watch:
 .PHONY: clean
 clean:
 	opam exec -- dune clean
+
+.PHONY: format
+format:
+	opam exec -- dune build --root . --auto-promote @fmt
 
 .PHONY: test-all
 test-all:

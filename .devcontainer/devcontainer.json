@@ -1,14 +1,10 @@
-// For format details, see https://aka.ms/vscode-remote/devcontainer.json or the definition README at
-// https://github.com/microsoft/vscode-dev-containers/tree/master/containers/python-3 or the
-// devcontainer docu https://code.visualstudio.com/docs/remote/containers#_devcontainerjson-reference
 {
     "name": "letters",
     "dockerComposeFile": "./docker-compose.yml",
     "service": "dev",
     "workspaceFolder": "/workspace",
     "privileged": true,
-    "postCreateCommand": "/bin/bash .devcontainer/postCreate.sh",
-    // Supported customizations: https://containers.dev/supporting
+    "postCreateCommand": ".devcontainer/postCreate.sh",
     "customizations": {
         "vscode": {
             "settings": {
@@ -27,7 +23,6 @@
                     "kind": "global"
                 }
             },
-            // Add the IDs of extensions you want installed when the container is created in the array below.
             "extensions": [
                 "donjayamanne.githistory",
                 "eamodio.gitlens",

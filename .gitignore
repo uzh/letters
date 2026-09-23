@@ -3,3 +3,5 @@
 .merlin
 *_account.json
 .vscode
+.env
+.DS_Store

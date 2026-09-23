@@ -46,6 +46,7 @@ let run_with_starttls
       ~from
       ~recipients
       ~mail
+      ()
   =
   let ( let* ) = Lwt_result.bind in
   let port =
@@ -96,11 +97,23 @@ let run_with_starttls
         recipients
         mail_stream
     in
-    Lwt_scheduler.prj fiber)
+    Lwt.finalize
+      (fun () -> Lwt_scheduler.prj fiber)
+      (fun () -> Lwt_io.close ic >>= fun () -> Lwt_io.close oc))
 ;;
 
-let run ~hostname ?port ~domain ?authentication ~tls_authenticator ~from ~recipients ~mail
+let run
+      ~hostname
+      ?port
+      ~domain
+      ?authentication
+      ~tls_authenticator
+      ~from
+      ~recipients
+      ~mail
+      ()
   =
+  let open Lwt.Infix in
   let ( let* ) = Lwt_result.bind in
   let port =
     match port with
@@ -129,5 +142,51 @@ let run ~hostname ?port ~domain ?authentication ~tls_authenticator ~from ~recipi
       recipients
       mail_stream
   in
-  Lwt_scheduler.prj fiber
+  Lwt.finalize
+    (fun () -> Lwt_scheduler.prj fiber)
+    (fun () -> Lwt_io.close ic >>= fun () -> Lwt_io.close oc)
+;;
+
+let[@warning "-16"] run_with_starttls_legacy
+                      ~hostname
+                      ?port
+                      ~domain
+                      ?authentication
+                      ~tls_authenticator
+                      ~from
+                      ~recipients
+                      ~mail
+  =
+  run_with_starttls
+    ~hostname
+    ?port
+    ~domain
+    ?authentication
+    ~tls_authenticator
+    ~from
+    ~recipients
+    ~mail
+    ()
+;;
+
+let[@warning "-16"] run_legacy
+                      ~hostname
+                      ?port
+                      ~domain
+                      ?authentication
+                      ~tls_authenticator
+                      ~from
+                      ~recipients
+                      ~mail
+  =
+  run
+    ~hostname
+    ?port
+    ~domain
+    ?authentication
+    ~tls_authenticator
+    ~from
+    ~recipients
+    ~mail
+    ()
 ;;

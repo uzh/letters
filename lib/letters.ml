@@ -67,17 +67,14 @@ let stream_of_string s =
       Some (s, 0, String.length s))
 ;;
 
-let str_to_colombe_address str_address =
+let str_to_colombe_address (str_address : string) : Colombe.Forward_path.t =
   match Emile.of_string str_address with
-  | Ok mailbox ->
-    (match Colombe_emile.to_forward_path mailbox with
-     | Ok address -> address
-     | Error _ -> raise (Invalid_email_address str_address))
+  | Ok mailbox -> Colombe_emile.to_forward_path mailbox
   | Error _ -> raise (Invalid_email_address str_address)
 ;;
 
 let domain_of_reverse_path = function
-  | None -> Rresult.R.error_msgf "reverse-path is empty"
+  | None -> Error (`Msg "reverse-path is empty")
   | Some { Colombe.Path.domain; _ } -> Ok domain
 ;;
 
@@ -235,11 +232,7 @@ let send =
       | Ok v -> v
       | Error (`Invalid (_, _)) -> failwith "Invalid sender address"
     in
-    let from_addr =
-      match Colombe_emile.to_reverse_path from_mailbox with
-      | Ok v -> v
-      | Error (`Msg msg) -> failwith msg
-    in
+    let from_addr = Colombe_emile.to_reverse_path from_mailbox in
     let recipients =
       List.map
         (fun recipient ->
@@ -294,6 +287,7 @@ let send =
           ~from:from_addr
           ~recipients
           ~mail
+          ()
       in
       match res with
       | Ok () -> Lwt.return ()
@@ -311,6 +305,7 @@ let send =
           ~from:from_addr
           ~recipients
           ~mail
+          ()
       in
       match res with
       | Ok () -> Lwt.return ()

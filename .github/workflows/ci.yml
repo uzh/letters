@@ -4,48 +4,60 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: Build and test
     runs-on: ${{ matrix.os }}
+
     strategy:
-      fail-fast: false
       matrix:
         os:
-          # Disable macos build for now since it keeps failing with dune not found
-          # - macos-latest
           - ubuntu-latest
         ocaml-compiler:
-          - 4.14
-          - 4.13
-          - 4.12
-          - 4.11
-          - 4.10.1
-          - 4.09
-          - 4.08
+          - "5.3.0"
+      fail-fast: false
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Retrieve opam cache
-        uses: actions/cache@v4
-        if: runner.os != 'Windows'
-        id: cache-opam
-        with:
-          path: ~/.opam
-          key: v1-${{ runner.os }}-opam-${{ matrix.ocaml-compiler }}-${{ hashFiles('*.opam.locked') }}
-      - name: Use OCaml ${{ matrix.ocaml-compiler }}
+      - name: Checkout tree
+        uses: actions/checkout@v6
+
+      - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
-      - name: Install dependencies
-        if: steps.cache-opam.outputs.cache-hit != 'true'
-        run: |
-          opam install -y dune
-          opam install -y . --deps-only --with-doc --with-test --locked --update-invariant
-      - name: Recover from an Opam broken state
-        if: steps.cache-opam.outputs.cache-hit == 'true'
-        run: |
-          opam install -y dune
-          opam upgrade --fixup
-      - name: Build
-        run: make build
-      - name: Run tests
-        run: make test
+
+      - run: opam install . --deps-only --with-test
+
+      - run: opam exec -- dune build
+
+      - run: opam exec -- dune runtest
+
+  lint-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tree
+        uses: actions/checkout@v6
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+      - uses: ocaml/setup-ocaml/lint-doc@v3
+
+  lint-fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tree
+        uses: actions/checkout@v6
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+      - uses: ocaml/setup-ocaml/lint-fmt@v3
+
+  lint-opam:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tree
+        uses: actions/checkout@v6
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+      - uses: ocaml/setup-ocaml/lint-opam@v3

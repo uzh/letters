@@ -1,4 +1,4 @@
-(lang dune 2.7)
+(lang dune 3.7)
 
 (name letters)
 
@@ -29,23 +29,27 @@
   (ca-certs
    (>= 0.2.1))
   (colombe
-   (>= 0.7.0))
+   (>= 0.13.0))
   (containers
    (>= 3.13.1))
+  (domain-name
+   (>= 0.3.0))
+  (emile
+   (>= 0.8))
   (fmt
    (>= 0.8.8))
-  (fpath
+  (logs
    (>= 0.7.0))
   (lwt
    (>= 5.2.0))
   (mrmime
    (>= 0.3.1))
   (ocaml
-   (>= 4.08.1))
+   (>= 5.2.0))
   (ptime
    (>= 0.8.5))
   (sendmail
-   (>= 0.7.0))
+   (>= 0.13.0))
   (tls-lwt
    (>= 1.0.4))
   (tls
@@ -68,6 +72,7 @@
   ;; Documentation dependencies
   (odoc :with-doc)
   ;; Dev dependencies
-  (ocamlformat :dev)))
+  (ocamlformat :with-dev-setup)
+  (ocaml-lsp-server :with-dev-setup)))
 
 (implicit_transitive_deps false)
