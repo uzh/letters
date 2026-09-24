@@ -13,6 +13,7 @@
   lwt
   lwt.unix
   mrmime
+  unstrctrd
   ptime.clock.os
   sendmail
   sendmail.starttls
