@@ -101,6 +101,22 @@ let cc_recipient_to_address : recipient -> Mrmime.Address.t option =
 ;;
 
 let now () = Some (Ptime_clock.now ())
+let space = Uchar.of_char ' '
+
+let surround_words_with_boxes lst =
+  let open Mrmime.Unstructured in
+  let rec go acc = function
+    | [] -> acc
+    | (`WSP _ as wsp) :: rem -> go (`Open Box :: wsp :: `Close :: acc) rem
+    | (#elt as elt) :: rem -> go (elt :: acc) rem
+  in
+  let rec split acc = function
+    | (`WSP _ as wsp) :: rem -> split (wsp :: acc) rem
+    | lst -> acc, lst
+  in
+  let wsps, lst = split [] lst in
+  go (`Open Box :: wsps) lst |> List.cons `Close |> List.rev
+;;
 
 let create_email ?reply_to ~from ~recipients ~subject ~body () =
   try
@@ -111,8 +127,14 @@ let create_email ?reply_to ~from ~recipients ~subject ~body () =
       | Error _ -> raise (Invalid_email_address from)
     in
     let subject : Unstructured.t =
+      let to_elt chr =
+        if Uchar.equal chr space
+        then (Unstrctrd.wsp ~len:1 :> Mrmime.Unstructured.elt)
+        else `Uchar chr
+      in
       CCUtf8_string.(of_string subject |> CCOption.map to_list)
-      |> CCOption.map (CCList.map (fun m -> `Uchar m))
+      |> CCOption.map (CCList.map to_elt)
+      |> CCOption.map surround_words_with_boxes
       |> CCOption.get_or ~default:(Unstructured.Craft.v subject)
     in
     let date = Date.of_ptime ~zone:Date.Zone.GMT (Ptime_clock.now ()) in
