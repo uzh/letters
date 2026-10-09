@@ -3,8 +3,6 @@
 # immediately when a command fails and print each command
 set -ex
 
-sudo chown -R opam: _build
-
 opam init -a --shell=zsh
 
 opam remote remove --all default

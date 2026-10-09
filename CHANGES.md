@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1] - 2026-10-09
+
+### Fixed
+
+- subject encoding, surround words with boxes, break long subjects on whitespaces
+- make sure connection is closed in finalize
+
 ## [0.3.3] - 2023-07-21
 
 - Add reply field on email creation if needed

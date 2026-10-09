@@ -30,6 +30,10 @@ RUN ln -fs /usr/share/zoneinfo/Europe/Zurich /etc/localtime
 # link opam version
 RUN ln -fs /usr/bin/opam-2.3 /usr/bin/opam
 
+# precreate volume directories (user rights)
+RUN mkdir -p /workspace/_build \
+  && chown -R opam:opam /workspace
+
 USER opam
 
 # install oh-my-zsh
