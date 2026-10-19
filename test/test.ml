@@ -93,7 +93,10 @@ let free_local_port () =
   port
 ;;
 
-let failing_starttls_sends ?timeout ~hostname ~port () =
+(* Sends emails that must fail with an error accepted by [expected], each within
+   [timeout] seconds. Any other error means [send] failed before connecting, so the fd
+   counts would not test anything. *)
+let failing_starttls_sends ~timeout ~expected ~hostname ~port n =
   let config =
     Config.create ~username:"" ~password:"" ~hostname ~with_starttls:true ()
     |> Config.set_port (Some port)
@@ -111,16 +114,12 @@ let failing_starttls_sends ?timeout ~hostname ~port () =
     | Error reason -> failwith reason
   in
   let send () =
-    let send () =
+    Lwt_unix.with_timeout timeout (fun () ->
       send
         ~config
         ~sender:"harry@example.com"
         ~recipients:[ To "dave@example.com" ]
-        ~message
-    in
-    match timeout with
-    | Some timeout -> Lwt_unix.with_timeout timeout send
-    | None -> send ()
+        ~message)
   in
   let rec go n =
     if n = 0
@@ -128,26 +127,39 @@ let failing_starttls_sends ?timeout ~hostname ~port () =
     else
       Lwt.bind
         (Lwt.catch
-           (fun () -> Lwt.map (fun () -> true) (send ()))
-           (fun _ -> Lwt.return false))
-        (fun sent ->
-           if sent then Alcotest.fail "sending email should fail" else go (n - 1))
+           (fun () -> Lwt.map (fun () -> None) (send ()))
+           (fun exn -> Lwt.return (Some exn)))
+        (function
+          | None -> Alcotest.fail "sending email should fail"
+          | Some exn when expected exn -> go (n - 1)
+          | Some exn -> Alcotest.failf "unexpected error: %s" (Printexc.to_string exn))
   in
-  go 50
+  go n
 ;;
 
 let check_no_fd_leak sends =
   match open_fds () with
   | None -> Lwt.return (Alcotest.skip ())
-  | Some before ->
-    Lwt.bind (sends ()) (fun () ->
-      Alcotest.(check (option int)) "open file descriptors" (Some before) (open_fds ());
-      Lwt.return ())
+  | Some _ ->
+    (* Warm up, so fds that stay open for the whole process (resolver, CA certs) are
+       not counted as leaks *)
+    Lwt.bind (sends 1) (fun () ->
+      let before = open_fds () in
+      Lwt.bind (sends 50) (fun () ->
+        Alcotest.(check (option int)) "open file descriptors" before (open_fds ());
+        Lwt.return ()))
 ;;
 
 let test_starttls_connection_refused_does_not_leak _ () =
   let port = free_local_port () in
-  check_no_fd_leak (failing_starttls_sends ~hostname:"localhost" ~port)
+  check_no_fd_leak
+    (failing_starttls_sends
+       ~timeout:5.
+       ~expected:(function
+         | Unix.Unix_error (err, _, _) -> err = Unix.ECONNREFUSED
+         | _ -> false)
+       ~hostname:"localhost"
+       ~port)
 ;;
 
 let test_starttls_connect_timeout_does_not_leak _ () =
@@ -157,13 +169,24 @@ let test_starttls_connect_timeout_does_not_leak _ () =
   Lwt.bind
     (Lwt.catch
        (fun () ->
-          Lwt.map
-            (fun res -> Array.to_list res.Lwt_unix.h_addr_list)
-            (Lwt_unix.gethostbyname hostname))
+          Lwt_unix.with_timeout 2. (fun () ->
+            Lwt.map
+              (fun res -> Array.to_list res.Lwt_unix.h_addr_list)
+              (Lwt_unix.gethostbyname hostname)))
        (fun _ -> Lwt.return []))
     (function
       | addr :: _ when Unix.string_of_inet_addr addr = "10.255.255.1" ->
-        check_no_fd_leak (failing_starttls_sends ~timeout:0.2 ~hostname ~port:25)
+        check_no_fd_leak
+          (failing_starttls_sends
+             ~timeout:0.2
+             ~expected:(function
+               (* Without a route the connect fails right away instead of timing out *)
+               | Lwt_unix.Timeout -> true
+               | Unix.Unix_error (err, _, _) ->
+                 List.mem err Unix.[ ENETUNREACH; EHOSTUNREACH ]
+               | _ -> false)
+             ~hostname
+             ~port:25)
       | _ -> Lwt.return (Alcotest.skip ()))
 ;;
 
