@@ -67,8 +67,6 @@ let run_with_starttls
   then Lwt.fail_with (Fmt.str "%a can not be resolved" Domain_name.pp hostname)
   else (
     let socket = Lwt_unix.socket Lwt_unix.PF_INET Unix.SOCK_STREAM 0 in
-    Lwt_unix.connect socket (Lwt_unix.ADDR_INET (res.Lwt_unix.h_addr_list.(0), port))
-    >>= fun () ->
     let closed = ref false in
     let close () =
       if !closed
@@ -77,29 +75,35 @@ let run_with_starttls
         closed := true;
         Lwt_unix.close socket)
     in
-    let ic = Lwt_io.of_fd ~close ~mode:Lwt_io.Input socket in
-    let oc = Lwt_io.of_fd ~close ~mode:Lwt_io.Output socket in
-    let mail_stream () =
-      match mail () with
-      | Some v -> Lwt_scheduler.inj (Lwt.return (Some v))
-      | None -> Lwt_scheduler.inj (Lwt.return None)
-    in
-    let fiber =
-      Sendmail_with_starttls.sendmail
-        lwt
-        rdwr
-        { ic; oc }
-        ctx
-        tls
-        ?authentication
-        ~domain
-        from
-        recipients
-        mail_stream
-    in
+    (* The outer finalizer closes the socket if connecting fails or is cancelled, or if
+       anything raises before the channels own it. *)
     Lwt.finalize
-      (fun () -> Lwt_scheduler.prj fiber)
-      (fun () -> Lwt_io.close ic >>= fun () -> Lwt_io.close oc))
+      (fun () ->
+         Lwt_unix.connect socket (Lwt_unix.ADDR_INET (res.Lwt_unix.h_addr_list.(0), port))
+         >>= fun () ->
+         let ic = Lwt_io.of_fd ~close ~mode:Lwt_io.Input socket in
+         let oc = Lwt_io.of_fd ~close ~mode:Lwt_io.Output socket in
+         let mail_stream () =
+           match mail () with
+           | Some v -> Lwt_scheduler.inj (Lwt.return (Some v))
+           | None -> Lwt_scheduler.inj (Lwt.return None)
+         in
+         Lwt.finalize
+           (fun () ->
+              Sendmail_with_starttls.sendmail
+                lwt
+                rdwr
+                { ic; oc }
+                ctx
+                tls
+                ?authentication
+                ~domain
+                from
+                recipients
+                mail_stream
+              |> Lwt_scheduler.prj)
+           (fun () -> Lwt_io.close ic >>= fun () -> Lwt_io.close oc))
+      close)
 ;;
 
 let run
