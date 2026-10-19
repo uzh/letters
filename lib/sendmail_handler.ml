@@ -65,41 +65,32 @@ let run_with_starttls
   >>= fun res ->
   if Array.length res.Lwt_unix.h_addr_list = 0
   then Lwt.fail_with (Fmt.str "%a can not be resolved" Domain_name.pp hostname)
-  else (
-    let socket = Lwt_unix.socket Lwt_unix.PF_INET Unix.SOCK_STREAM 0 in
-    Lwt_unix.connect socket (Lwt_unix.ADDR_INET (res.Lwt_unix.h_addr_list.(0), port))
-    >>= fun () ->
-    let closed = ref false in
-    let close () =
-      if !closed
-      then Lwt.return ()
-      else (
-        closed := true;
-        Lwt_unix.close socket)
-    in
-    let ic = Lwt_io.of_fd ~close ~mode:Lwt_io.Input socket in
-    let oc = Lwt_io.of_fd ~close ~mode:Lwt_io.Output socket in
+  else
+    (* [open_connection] closes the socket itself if connecting fails or is cancelled *)
+    Lwt_io.open_connection (Lwt_unix.ADDR_INET (res.Lwt_unix.h_addr_list.(0), port))
+    >>= fun (ic, oc) ->
     let mail_stream () =
       match mail () with
       | Some v -> Lwt_scheduler.inj (Lwt.return (Some v))
       | None -> Lwt_scheduler.inj (Lwt.return None)
     in
-    let fiber =
-      Sendmail_with_starttls.sendmail
-        lwt
-        rdwr
-        { ic; oc }
-        ctx
-        tls
-        ?authentication
-        ~domain
-        from
-        recipients
-        mail_stream
-    in
     Lwt.finalize
-      (fun () -> Lwt_scheduler.prj fiber)
-      (fun () -> Lwt_io.close ic >>= fun () -> Lwt_io.close oc))
+      (fun () ->
+         Sendmail_with_starttls.sendmail
+           lwt
+           rdwr
+           { ic; oc }
+           ctx
+           tls
+           ?authentication
+           ~domain
+           from
+           recipients
+           mail_stream
+         |> Lwt_scheduler.prj)
+      (fun () ->
+         (* channels share the socket: flush [oc] before [ic] closes it. *)
+         Lwt.finalize (fun () -> Lwt_io.close oc) (fun () -> Lwt_io.close ic))
 ;;
 
 let run

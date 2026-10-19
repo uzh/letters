@@ -1,6 +1,6 @@
 (executable
  (name test)
- (libraries letters alcotest alcotest-lwt lwt mrmime sendmail))
+ (libraries letters alcotest alcotest-lwt lwt lwt.unix mrmime sendmail unix))
 
 (rule
  (alias runtest)
