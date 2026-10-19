@@ -1,6 +1,14 @@
 # Changelog
 
-## [0.4.1] - 2026-10-09
+## [0.4.2](https://github.com/uzh/letters/tree/0.4.2) - 2026-10-19
+
+### Fixed
+
+- STARTTLS: fix socket leak when connecting fails or is cancelled, and make
+  sure the connection is closed after sending (output channel is flushed before
+  the shared socket is closed)
+
+## [0.4.1](https://github.com/uzh/letters/tree/0.4.1) - 2026-10-09
 
 ### Fixed
 
