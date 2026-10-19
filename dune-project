@@ -54,6 +54,8 @@
    (>= 1.0.4))
   (tls
    (>= 1.0.4))
+  (unstrctrd
+   (>= 0.5))
   (x509
    (>= 0.9.0))
   ;; Test dependencies
